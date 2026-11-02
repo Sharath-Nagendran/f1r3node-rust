@@ -1,0 +1,61 @@
+name: Build F1R3FLY offline vendor bundle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vendor:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout exact F1R3FLY revision
+        uses: actions/checkout@v4
+        with:
+          ref: 91fa43776730378581f9e5942a442cbb32c3c2dd
+          fetch-depth: 1
+
+      - name: Vendor all locked dependencies
+        run: |
+          mkdir -p .cargo
+
+          cargo vendor \
+            --locked \
+            --versioned-dirs \
+            vendor \
+            > vendor-config.toml
+
+          cp Cargo.lock vendor-Cargo.lock
+
+          echo "Vendor directory size:"
+          du -sh vendor
+
+          echo "Vendor dependency count:"
+          find vendor -mindepth 1 -maxdepth 1 -type d | wc -l
+
+          echo "Generated Cargo source configuration:"
+          cat vendor-config.toml
+
+      - name: Package vendor bundle
+        run: |
+          tar -czf f1r3fly-vendor-91fa437.tar.gz \
+            vendor \
+            vendor-config.toml \
+            vendor-Cargo.lock
+
+          sha256sum f1r3fly-vendor-91fa437.tar.gz \
+            > f1r3fly-vendor-91fa437.tar.gz.sha256
+
+          cat f1r3fly-vendor-91fa437.tar.gz.sha256
+
+      - name: Upload offline bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: f1r3fly-vendor-91fa437
+          path: |
+            f1r3fly-vendor-91fa437.tar.gz
+            f1r3fly-vendor-91fa437.tar.gz.sha256
+          if-no-files-found: error
+          compression-level: 0
